@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Margin Calculator — am. legerstock hendriks</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f5f3;
+    --surface: #ffffff;
+    --border: rgba(0,0,0,0.1);
+    --border-strong: rgba(0,0,0,0.18);
+    --text: #1a1a1a;
+    --text-muted: #666;
+    --text-hint: #999;
+    --blue: #0055A4;
+    --blue-dark: #003d7a;
+    --green: #3b6d11;
+    --red-soft: #a32d2d;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'SF Mono', 'Fira Mono', 'Consolas', monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a;
+      --surface: #252523;
+      --border: rgba(255,255,255,0.1);
+      --border-strong: rgba(255,255,255,0.18);
+      --text: #f0efe8;
+      --text-muted: #aaa;
+      --text-hint: #666;
+    }
+  }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+  #app { min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* Header */
+  header { background: var(--surface); border-bottom: 0.5px solid var(--border); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .logo-mark { width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--blue); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: 13px; flex-shrink: 0; }
+  .brand-text h1 { font-size: 15px; font-weight: 600; line-height: 1.2; }
+  .brand-text p { font-size: 11px; color: var(--text-muted); }
+  .header-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+  /* Buttons */
+  button { cursor: pointer; font-family: var(--font); font-size: 13px; padding: 6px 12px; border-radius: var(--radius-md); border: 0.5px solid var(--border-strong); background: var(--surface); color: var(--text); display: inline-flex; align-items: center; gap: 6px; transition: background 0.15s; }
+  button:hover { background: var(--bg); }
+  button.danger { color: var(--red-soft); }
+
+  /* Main */
+  main { flex: 1; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; max-width: 1400px; width: 100%; margin: 0 auto; }
+
+  /* Drop zone */
+  #drop-zone { border: 1.5px dashed var(--border-strong); border-radius: var(--radius-lg); padding: 56px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; cursor: pointer; transition: all 0.15s; background: var(--surface); }
+  #drop-zone.drag { border-color: var(--blue); background: #e6f1fb; }
+  #drop-zone.loading { opacity: 0.6; pointer-events: none; }
+  #drop-zone .dz-icon { font-size: 38px; color: var(--blue); }
+  #drop-zone h2 { font-size: 16px; font-weight: 600; }
+  #drop-zone p { font-size: 13px; color: var(--text-muted); }
+  #file-input { display: none; }
+
+  /* Controls */
+  .controls-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+  .control-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; }
+  .control-card label { font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 8px; }
+  .control-row { display: flex; align-items: center; gap: 8px; }
+  .control-row input[type=range] { flex: 1; accent-color: var(--blue); }
+  .control-row input[type=number] { width: 64px; text-align: right; font-size: 13px; font-weight: 600; font-family: var(--mono); border: 0.5px solid var(--border-strong); border-radius: var(--radius-md); padding: 4px 6px; background: var(--surface); color: var(--blue); }
+  .tax-note { font-size: 11px; color: var(--text-muted); margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+
+  /* File info */
+  .file-info { font-size: 13px; color: var(--text-muted); }
+  .file-info strong { color: var(--text); }
+
+  /* Table */
+  .table-wrap { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .scroll-x { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: var(--bg); padding: 8px 10px; text-align: right; font-weight: 600; font-size: 11px; color: var(--text-muted); white-space: nowrap; border-bottom: 0.5px solid var(--border); }
+  th.left { text-align: left; }
+  th.profit-h { color: var(--green); }
+  td { padding: 5px 10px; text-align: right; border-bottom: 0.5px solid var(--border); vertical-align: middle; white-space: nowrap; }
+  td.left { text-align: left; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+  td input { border: none; background: transparent; font-family: var(--font); font-size: 12px; color: var(--text); outline: none; }
+  td input.left { text-align: left; width: 100%; }
+  td input.mono { font-family: var(--mono); text-align: right; }
+  td input:focus { background: var(--bg); border-radius: 4px; }
+  .cell-num { font-family: var(--mono); }
+  .cell-sell { font-family: var(--mono); font-weight: 600; color: var(--blue); }
+  .cell-profit { font-family: var(--mono); font-weight: 600; color: var(--green); }
+  .cell-loss { font-family: var(--mono); font-weight: 600; color: var(--red-soft); }
+  .btn-del { background: none; border: none; padding: 2px 4px; opacity: 0; color: var(--red-soft); font-size: 14px; transition: opacity 0.15s; }
+  tr:hover .btn-del { opacity: 1; }
+
+  /* Totals */
+  .totals-bar { border-top: 0.5px solid var(--border); background: var(--bg); padding: 10px 16px; display: flex; justify-content: flex-end; gap: 24px; flex-wrap: wrap; }
+  .total-item { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .total-item span { font-size: 11px; color: var(--text-muted); }
+  .total-item strong { font-family: var(--mono); font-size: 14px; font-weight: 600; }
+  .total-item strong.blue { color: var(--blue); }
+  .total-item strong.green { color: var(--green); }
+
+  /* Column dropdown */
+  .col-toggle-wrap { position: relative; }
+  .col-dropdown { position: absolute; right: 0; top: calc(100% + 4px); background: var(--surface); border: 0.5px solid var(--border-strong); border-radius: var(--radius-lg); padding: 8px; z-index: 10; min-width: 180px; display: none; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+  .col-dropdown.open { display: block; }
+  .col-dropdown label { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 5px 6px; cursor: pointer; border-radius: 4px; }
+  .col-dropdown label:hover { background: var(--bg); }
+  .col-dropdown input[type=checkbox] { accent-color: var(--blue); }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--surface); border: 0.5px solid var(--border-strong); border-radius: var(--radius-lg); padding: 10px 16px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); z-index: 100; transform: translateY(60px); opacity: 0; transition: all 0.2s; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.error { border-color: #f09595; color: var(--red-soft); }
+  .toast.success { border-color: #97c459; color: var(--green); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <div class="logo-mark">am.</div>
+      <div class="brand-text">
+        <h1>Margin Calculator</h1>
+        <p>Invoice → Selling Prices</p>
+      </div>
+    </div>
+    <div class="header-actions" id="header-actions" style="display:none">
+      <div class="col-toggle-wrap">
+        <button onclick="toggleColDropdown()"><i class="ti ti-columns-3"></i> Columns</button>
+        <div class="col-dropdown" id="col-dropdown"></div>
+      </div>
+      <button onclick="doExcel()"><i class="ti ti-file-spreadsheet"></i> Excel</button>
+      <button onclick="doPDF()"><i class="ti ti-printer"></i> PDF</button>
+      <button class="danger" onclick="doReset()"><i class="ti ti-refresh"></i> New file</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="upload-view">
+      <label id="drop-zone" for="file-input">
+        <div class="dz-icon"><i class="ti ti-cloud-upload"></i></div>
+        <h2 id="dz-title">Drop your file here</h2>
+        <p>XML invoices, CSV, or Excel files (.xlsx, .xls)</p>
+        <input type="file" id="file-input" accept=".xml,.csv,.xlsx,.xls,.txt" onchange="onFileInput(event)">
+      </label>
+    </div>
+
+    <div id="product-view" style="display:none">
+      <div class="controls-grid" id="controls-grid"></div>
+      <p class="file-info" id="file-info"></p>
+      <div class="table-wrap">
+        <div class="scroll-x">
+          <table>
+            <thead><tr id="table-head"></tr></thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+        <div class="totals-bar" id="totals-bar"></div>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SALES_TAX = 21;
+const ALL_COLS = ["code","product","qty","unitPrice","margin","unitSell","profit"];
+const COL_LABELS = {
+  code: "Code",
+  product: "Product",
+  qty: "Qty",
+  unitPrice: "Unit Price",
+  margin: "Margin ×",
+  unitSell: "Unit Sell (incl. 21% VAT)",
+  profit: "Profit / unit"
+};
+
+let products = [], purchaseTax = 0, margin = 1.8, fileName = null;
+let visibleCols = [...ALL_COLS];
+
+const genId = () => Math.random().toString(36).substr(2, 8);
+const fmtE = n => '€' + Number(n).toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtN = n => Number(n).toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function calcProduct(p) {
+  const pTax = p.customPurchaseTax ?? purchaseTax;
+  const pMargin = p.customMargin ?? margin;
+  const unitPrice = p.quantity > 0 ? p.costPrice / p.quantity : p.costPrice;
+  const costAfterTax = unitPrice * (1 + pTax / 100);
+  const sellExVat = unitPrice * pMargin;
+  const sellIncVat = sellExVat * (1 + SALES_TAX / 100);
+  const profit = sellExVat - costAfterTax;
+  return { unitPrice, costAfterTax, sellExVat, sellIncVat, profit };
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+function doReset() {
+  products = []; fileName = null;
+  document.getElementById('upload-view').style.display = '';
+  document.getElementById('product-view').style.display = 'none';
+  document.getElementById('header-actions').style.display = 'none';
+  document.getElementById('file-input').value = '';
+  document.getElementById('dz-title').textContent = 'Drop your file here';
+}
+
+function toggleColDropdown() { document.getElementById('col-dropdown').classList.toggle('open'); }
+document.addEventListener('click', e => { if (!e.target.closest('.col-toggle-wrap')) document.getElementById('col-dropdown').classList.remove('open'); });
+
+function buildColDropdown() {
+  document.getElementById('col-dropdown').innerHTML = ALL_COLS.map(k => `
+    <label><input type="checkbox" ${visibleCols.includes(k) ? 'checked' : ''} onchange="toggleCol('${k}')">${COL_LABELS[k]}</label>`).join('');
+}
+
+function toggleCol(k) {
+  visibleCols = visibleCols.includes(k) ? visibleCols.filter(c => c !== k) : ALL_COLS.filter(c => visibleCols.includes(c) || c === k);
+  renderTable();
+}
+
+window._ctrlDefs = [];
+function buildControls() {
+  const defs = [
+    { label: 'Purchase Tax %', get: () => purchaseTax, set: v => { purchaseTax = v; }, max: 50, step: 0.5 },
+    { label: 'Margin ×', get: () => margin, set: v => { margin = v; }, max: 5, step: 0.1 },
+  ];
+  window._ctrlDefs = defs;
+  document.getElementById('controls-grid').innerHTML = defs.map((d, i) => `
+    <div class="control-card">
+      <label>${d.label}</label>
+      <div class="control-row">
+        <input type="range" min="0" max="${d.max}" step="${d.step}" value="${d.get()}" oninput="setCtrl(${i},+this.value)" id="sl${i}">
+        <input type="number" value="${d.get()}" step="${d.step}" min="0" max="${d.max}" oninput="setCtrl(${i},+this.value)" id="ni${i}">
+      </div>
+      ${i === 1 ? `<p class="tax-note"><i class="ti ti-info-circle"></i> Sell price includes 21% VAT</p>` : ''}
+    </div>`).join('');
+}
+
+function setCtrl(i, v) {
+  window._ctrlDefs[i].set(v);
+  document.getElementById('sl' + i).value = v;
+  document.getElementById('ni' + i).value = v;
+  renderTable();
+}
+
+function renderTable() {
+  document.getElementById('table-head').innerHTML =
+    visibleCols.map(k => `<th class="${k === 'code' || k === 'product' ? 'left' : ''}${k === 'profit' ? ' profit-h' : ''}">${COL_LABELS[k]}</th>`).join('') +
+    '<th style="width:28px"></th>';
+
+  document.getElementById('table-body').innerHTML = products.map(p => {
+    const { unitPrice, sellIncVat, profit } = calcProduct(p);
+    const cells = visibleCols.map(k => {
+      if (k === 'code') return `<td class="left"><input class="left" value="${escHtml(p.articleCode || '')}" placeholder="-" oninput="updateP('${p.id}','articleCode',this.value)" style="min-width:60px"></td>`;
+      if (k === 'product') return `<td class="left" style="min-width:160px"><input class="left" value="${escHtml(p.name)}" oninput="updateP('${p.id}','name',this.value)" style="min-width:150px"></td>`;
+      if (k === 'qty') return `<td><input class="mono" type="number" value="${p.quantity}" style="width:50px" oninput="updateP('${p.id}','quantity',+this.value||1)"></td>`;
+      if (k === 'unitPrice') return `<td class="cell-num">${fmtN(unitPrice)}</td>`;
+      if (k === 'margin') return `<td><input class="mono" type="number" value="${p.customMargin ?? ''}" placeholder="${margin}" style="width:50px" oninput="updateP('${p.id}','customMargin',this.value===''?null:+this.value)"></td>`;
+      if (k === 'unitSell') return `<td class="cell-sell">${fmtN(sellIncVat)}</td>`;
+      if (k === 'profit') return `<td class="${profit >= 0 ? 'cell-profit' : 'cell-loss'}">${fmtN(profit)}</td>`;
+      return '<td></td>';
+    }).join('');
+    return `<tr>${cells}<td><button class="btn-del" onclick="removeP('${p.id}')"><i class="ti ti-trash"></i></button></td></tr>`;
+  }).join('');
+
+  const totalCost = products.reduce((s, p) => s + p.costPrice, 0);
+  const totalSell = products.reduce((s, p) => s + calcProduct(p).sellIncVat * p.quantity, 0);
+  const totalProfit = products.reduce((s, p) => s + calcProduct(p).profit * p.quantity, 0);
+  document.getElementById('totals-bar').innerHTML = `
+    <div class="total-item"><span>Total Cost</span><strong>${fmtE(totalCost)}</strong></div>
+    <div class="total-item"><span>Total Sell (incl. 21% VAT)</span><strong class="blue">${fmtE(totalSell)}</strong></div>
+    <div class="total-item"><span>Total Profit</span><strong class="green">${fmtE(totalProfit)}</strong></div>`;
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function updateP(id, field, value) { products = products.map(p => p.id === id ? { ...p, [field]: value } : p); renderTable(); }
+function removeP(id) { products = products.filter(p => p.id !== id); renderTable(); }
+
+function showProducts() {
+  document.getElementById('upload-view').style.display = 'none';
+  document.getElementById('product-view').style.display = '';
+  document.getElementById('header-actions').style.display = '';
+  document.getElementById('file-info').innerHTML = `Loaded <strong>${products.length}</strong> products from <strong>${escHtml(fileName)}</strong>`;
+  buildControls(); buildColDropdown(); renderTable();
+}
+
+/* ── Parsers ── */
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const sep = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ',';
+  const headers = lines[0].toLowerCase().split(sep);
+  const idx = p => headers.findIndex(h => p.test(h));
+  const nameIdx = idx(/product|name|desc|item|artículo|producto/i);
+  const priceIdx = idx(/price|cost|precio|costo|unit.*price|importe/i);
+  const qtyIdx = idx(/qty|quantity|cantidad|cant/i);
+  const unitIdx = idx(/unit|unidad|uom/i);
+  const codeIdx = idx(/code|article|sku|artikel|ref|reference|codigo|clave/i);
+  if (nameIdx === -1 || priceIdx === -1) return [];
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const cols = line.split(sep);
+    return { id: genId(), articleCode: codeIdx >= 0 ? cols[codeIdx]?.trim() || undefined : undefined, name: cols[nameIdx]?.trim() || 'Unknown', costPrice: parseFloat(cols[priceIdx]?.replace(/[^0-9.\-]/g, '') || '0') || 0, quantity: qtyIdx >= 0 ? parseFloat(cols[qtyIdx] || '1') || 1 : 1, unit: unitIdx >= 0 ? cols[unitIdx]?.trim() || 'pcs' : 'pcs' };
+  }).filter(p => p.costPrice > 0);
+}
+
+function parseXML(text) {
+  const doc = new DOMParser().parseFromString(text, 'text/xml');
+  const items = [];
+  const conceptos = doc.querySelectorAll('Concepto, cfdi\\:Concepto');
+  if (conceptos.length > 0) {
+    conceptos.forEach(c => items.push({ id: genId(), articleCode: c.getAttribute('ClaveProdServ') || c.getAttribute('NoIdentificacion') || undefined, name: c.getAttribute('Descripcion') || c.getAttribute('descripcion') || 'Product', costPrice: parseFloat(c.getAttribute('ValorUnitario') || c.getAttribute('valorUnitario') || '0'), quantity: parseFloat(c.getAttribute('Cantidad') || c.getAttribute('cantidad') || '1'), unit: c.getAttribute('ClaveUnidad') || c.getAttribute('Unidad') || 'pcs' }));
+    return items.filter(p => p.costPrice > 0);
+  }
+  const itemEl = [];
+  doc.querySelectorAll('*').forEach(el => { if (/item|product|line|detail|row/i.test(el.tagName)) itemEl.push(el); });
+  itemEl.forEach(el => {
+    const g = pat => { for (let i = 0; i < el.children.length; i++) { if (pat.test(el.children[i].tagName)) return el.children[i].textContent?.trim() || null; } for (let i = 0; i < el.attributes.length; i++) { if (pat.test(el.attributes[i].name)) return el.attributes[i].value; } return null; };
+    const price = parseFloat(g(/price|cost|amount|value/i) || '0');
+    if (price > 0) items.push({ id: genId(), articleCode: g(/code|sku|article|ref|clave/i) || undefined, name: g(/name|desc|product|item/i) || 'Product', costPrice: price, quantity: parseFloat(g(/qty|quantity|count/i) || '1'), unit: 'pcs' });
+  });
+  return items;
+}
+
+function parseExcel(buffer) { const wb = XLSX.read(buffer, { type: 'array' }); return parseCSV(XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]])); }
+
+async function processFile(file) {
+  const dz = document.getElementById('drop-zone');
+  const title = document.getElementById('dz-title');
+  dz.classList.add('loading'); title.textContent = 'Processing…';
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    let items = [];
+    if (ext === 'xml') items = parseXML(await file.text());
+    else if (ext === 'csv' || ext === 'txt') items = parseCSV(await file.text());
+    else if (ext === 'xlsx' || ext === 'xls') items = parseExcel(await file.arrayBuffer());
+    else throw new Error('Unsupported file type: .' + ext);
+    if (!items.length) throw new Error('No products found. Check column headers: name/product, price/cost, qty.');
+    products = items; fileName = file.name;
+    showToast(`Loaded ${items.length} products from ${file.name}`, 'success');
+    showProducts();
+  } catch (e) {
+    showToast(e.message || 'Failed to parse file', 'error');
+    title.textContent = 'Drop your file here';
+    dz.classList.remove('loading');
+  }
+}
+
+function onFileInput(e) { const f = e.target.files?.[0]; if (f) processFile(f); }
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); const f = e.dataTransfer.files[0]; if (f) processFile(f); });
+
+/* ── Export ── */
+function buildRows() {
+  return products.map(p => {
+    const { unitPrice, sellIncVat, profit } = calcProduct(p);
+    const pMargin = p.customMargin ?? margin;
+    const row = {};
+    if (visibleCols.includes('code')) row['Code'] = p.articleCode || '';
+    if (visibleCols.includes('product')) row['Product'] = p.name;
+    if (visibleCols.includes('qty')) row['Qty'] = p.quantity;
+    if (visibleCols.includes('unitPrice')) row['Unit Price'] = +unitPrice.toFixed(2);
+    if (visibleCols.includes('margin')) row['Margin ×'] = pMargin;
+    if (visibleCols.includes('unitSell')) row['Unit Sell (incl. 21% VAT)'] = +sellIncVat.toFixed(2);
+    if (visibleCols.includes('profit')) row['Profit / unit'] = +profit.toFixed(2);
+    return row;
+  });
+}
+
+function doExcel() {
+  const rows = buildRows();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = Object.keys(rows[0] || {}).map(() => ({ wch: 18 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Pricing');
+  XLSX.writeFile(wb, 'pricing_export.xlsx');
+  showToast('Excel downloaded', 'success');
+}
+
+function doPDF() {
+  const rows = buildRows();
+  if (!rows.length) return;
+  const headers = Object.keys(rows[0]);
+  const moneyCols = new Set(['Unit Price', 'Unit Sell (incl. 21% VAT)', 'Profit / unit']);
+  const fmtCell = (h, v) => moneyCols.has(h) ? '€' + Number(v).toFixed(2) : String(v);
+  const totalCost = products.reduce((s, p) => s + p.costPrice, 0);
+  const totalSell = products.reduce((s, p) => s + calcProduct(p).sellIncVat * p.quantity, 0);
+  const totalProfit = products.reduce((s, p) => s + calcProduct(p).profit * p.quantity, 0);
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Pricing Export</title>
+  <style>@page{size:landscape;margin:15mm}body{font-family:Arial,sans-serif;color:#1a1a1a}.bar{height:4px;background:#e24b4a;margin-bottom:12px}.hdr{border-bottom:3px solid #0055A4;padding-bottom:10px;margin-bottom:18px}.hdr h1{font-size:18px;color:#0055A4;margin:0}.hdr p{font-size:11px;color:#666;margin:3px 0 0}table{width:100%;border-collapse:collapse;font-size:11px}th{background:#0055A4;color:#fff;padding:7px 6px;text-align:right}th:nth-child(1),th:nth-child(2){text-align:left}td{padding:5px 6px;border-bottom:1px solid #e0e0e0;text-align:right;font-family:monospace}td:nth-child(1),td:nth-child(2){text-align:left;font-family:Arial,sans-serif}tr:nth-child(even){background:#f8f9fa}.tots{margin-top:14px;text-align:right;font-size:12px}.tots p{margin:3px 0}</style>
+  </head><body><div class="bar"></div><div class="hdr"><h1>am. legerstock hendriks</h1><p>Pricing Export &mdash; Purchase Tax: ${purchaseTax}% | Margin: ${margin}&times; | Sales Tax: 21% (included in sell price)</p></div>
+  <table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+  <tbody>${rows.map(r => `<tr>${headers.map(h => `<td>${fmtCell(h, r[h])}</td>`).join('')}</tr>`).join('')}</tbody></table>
+  <div class="tots"><p>Total Cost: <strong style="color:#0055A4">€${totalCost.toFixed(2)}</strong></p><p>Total Sell (incl. 21%): <strong style="color:#0055A4">€${totalSell.toFixed(2)}</strong></p><p>Total Profit: <strong style="color:#3b6d11">€${totalProfit.toFixed(2)}</strong></p></div>
+  </body></html>`;
+  const win = window.open('', '_blank');
+  if (win) { win.document.write(html); win.document.close(); setTimeout(() => win.print(), 500); }
+}
+</script>
+</body>
+</html>
